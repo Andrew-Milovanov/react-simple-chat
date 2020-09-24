@@ -4,13 +4,35 @@ const app = express();
 const server = require("http").Server(app);
 const io = require("socket.io")(server);
 
-const rooms = new Map([]);
+const rooms = new Map();
+
+app.use(express.json());
 
 app.get("/rooms", function (req, res) {
   res.json(rooms);
 });
 
+app.post("/rooms", function (req, res) {
+  const { roomId, userName } = req.body;
+  if (!rooms.has(roomId)) {
+    rooms.set(
+      roomId,
+      new Map([
+        ["users", new Map()],
+        ["messages", []],
+      ])
+    );
+  }
+  res.send();
+});
+
 io.on("connection", (socket) => {
+  socket.on("ROOM:JOIN", ({ roomId, userName }) => {
+    socket.join(roomId);
+    rooms.get(roomId).get("users").set(socket.id, userName);
+    const users = [...rooms.get(roomId).get("users").values()];
+    socket.to(roomId).broadcast.emit("ROOM:JOINED", users);
+  });
   console.log("user connected", socket.id);
 });
 
